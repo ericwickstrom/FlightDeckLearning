@@ -1,0 +1,6 @@
+@FlightDeck.API_HostAddress = http://localhost:5273
+
+GET {{FlightDeck.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
