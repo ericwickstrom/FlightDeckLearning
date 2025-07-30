@@ -11,10 +11,11 @@ public class FlightDeckDbContext : DbContext
 
     public DbSet<Airport> Airports { get; set; }
     public DbSet<UserProgress> UserProgress { get; set; }
+    public DbSet<User> Users { get; set; } // Add Users table
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Configure Airport entity
+        // Airport configuration
         modelBuilder.Entity<Airport>(entity =>
         {
             entity.HasKey(e => e.IataCode);
@@ -22,27 +23,33 @@ public class FlightDeckDbContext : DbContext
             entity.Property(e => e.Name).HasMaxLength(200);
             entity.Property(e => e.City).HasMaxLength(100);
             entity.Property(e => e.Country).HasMaxLength(100);
-            entity.Property(e => e.Region).HasMaxLength(50);
+            entity.Property(e => e.Region).HasMaxLength(100);
         });
 
-        // Configure UserProgress entity
+        // User configuration
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Email).HasMaxLength(255);
+            entity.Property(e => e.Username).HasMaxLength(50);
+            entity.Property(e => e.PasswordHash).HasMaxLength(255);
+            
+            // Email must be unique
+            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasIndex(e => e.Username).IsUnique();
+        });
+
+        // UserProgress configuration
         modelBuilder.Entity<UserProgress>(entity =>
         {
-            entity.HasKey(e => new { e.UserId, e.AirportCode });
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AirportCode).HasMaxLength(3);
+            
+            // Foreign key relationship
+            entity.HasOne<User>()
+                .WithMany(u => u.ProgressRecords)
+                .HasForeignKey(up => up.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
-
-        // Seed data
-        modelBuilder.Entity<Airport>().HasData(
-            new Airport("ATL", "Hartsfield-Jackson Atlanta International", "Atlanta", "USA", "North America"),
-            new Airport("LAX", "Los Angeles International", "Los Angeles", "USA", "North America"),
-            new Airport("ORD", "O'Hare International", "Chicago", "USA", "North America"),
-            new Airport("JFK", "John F. Kennedy International", "New York", "USA", "North America"),
-            new Airport("DFW", "Dallas/Fort Worth International", "Dallas", "USA", "North America"),
-            new Airport("DEN", "Denver International", "Denver", "USA", "North America"),
-            new Airport("LAS", "McCarran International", "Las Vegas", "USA", "North America"),
-            new Airport("PHX", "Phoenix Sky Harbor International", "Phoenix", "USA", "North America"),
-            new Airport("MIA", "Miami International", "Miami", "USA", "North America"),
-            new Airport("SEA", "Seattle-Tacoma International", "Seattle", "USA", "North America")
-        );
     }
 }

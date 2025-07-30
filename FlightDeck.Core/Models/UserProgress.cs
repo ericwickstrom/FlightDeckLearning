@@ -1,21 +1,33 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace FlightDeck.Core.Models
+namespace FlightDeck.Core.Models;
+
+public class UserProgress
 {
-    public record UserProgress(
-        string UserId,
-        string AirportCode,
-        int CorrectAnswers,
-        int TotalAttempts,
-        DateTime LastStudied
-    )
-    {
-        public double AccuracyRate => TotalAttempts > 0 ? (double)CorrectAnswers / TotalAttempts : 0.0;
-
-        public bool IsWeak => AccuracyRate < 0.6; // Less than 60% accuracy
-    }
+    [Key]
+    public int Id { get; set; }
+    
+    [Required]
+    public int UserId { get; set; }
+    
+    [Required]
+    [StringLength(3, MinimumLength = 3)]
+    public string AirportCode { get; set; } = string.Empty;
+    
+    [Range(0, int.MaxValue, ErrorMessage = "Correct answers cannot be negative")]
+    public int CorrectAnswers { get; set; }
+    
+    [Range(1, int.MaxValue, ErrorMessage = "Total attempts must be at least 1")]
+    public int TotalAttempts { get; set; }
+    
+    [Required]
+    public DateTime LastStudied { get; set; }
+    
+    // Computed properties - these don't get stored in database
+    [NotMapped]
+    public double AccuracyRate => TotalAttempts > 0 ? (double)CorrectAnswers / TotalAttempts : 0.0;
+    
+    [NotMapped]
+    public bool IsWeak => AccuracyRate < 0.6;
 }

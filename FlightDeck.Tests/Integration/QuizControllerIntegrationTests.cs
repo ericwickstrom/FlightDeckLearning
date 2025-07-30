@@ -34,11 +34,13 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
         var question = await response.Content.ReadFromJsonAsync<QuizQuestion>();
         
         question.Should().NotBeNull();
-        question!.QuestionText.Should().NotBeNullOrEmpty();
+        question!.Code.Should().NotBeNullOrEmpty();
         question.CorrectAnswer.Should().NotBeNullOrEmpty();
-        question.Options.Should().NotBeNull();
-        question.Options.Should().HaveCount(4); // Assuming 4 multiple choice options
-        question.Options.Should().Contain(question.CorrectAnswer); // Correct answer should be in options
+        question.WrongAnswers.Should().NotBeNull();
+        question.WrongAnswers.Should().HaveCount(3); // Your model has 3 wrong answers
+        
+        // Verify the correct answer is not in wrong answers
+        question.WrongAnswers.Should().NotContain(question.CorrectAnswer);
     }
 
     [Fact]
@@ -60,7 +62,7 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
     }
 
     [Fact]
-    public async Task GetQuestion_WithEmptyDatabase_ReturnsAppropriateResponse()
+    public async Task GetQuestion_WithEmptyDatabase_ReturnsNotFound()
     {
         // Arrange - Start with empty database
         using var context = _factory.GetDbContext();
@@ -70,13 +72,8 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
         // Act
         var response = await _client.GetAsync("/api/quiz/question");
 
-        // Assert - Should handle gracefully (exact behavior depends on your implementation)
-        // You might return 404, 204, or a specific error message
-        response.StatusCode.Should().BeOneOf(
-            HttpStatusCode.NotFound, 
-            HttpStatusCode.NoContent, 
-            HttpStatusCode.BadRequest
-        );
+        // Assert - Your QuizController returns NotFound when no airports exist
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -101,12 +98,12 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
 
         // With multiple airports, there's a chance we get different questions
         // This tests that the randomization is working
-        var questions = new[] { question1!.QuestionText, question2!.QuestionText, question3!.QuestionText };
+        var codes = new[] { question1!.Code, question2!.Code, question3!.Code };
         
         // Note: This could occasionally fail due to randomness, but with 3 airports 
         // and multiple question types, we should usually get some variety
-        questions.Should().NotBeNull();
-        questions.Distinct().Should().HaveCountGreaterOrEqualTo(1); // At least some questions generated
+        codes.Should().NotBeNull();
+        codes.Distinct().Count().Should().BeGreaterThan(0); // At least some questions generated
     }
 
     [Fact]
@@ -132,10 +129,15 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
         // Assert - If we found a CodeToAirport question, verify its format
         if (codeToAirportQuestion != null)
         {
-            codeToAirportQuestion.QuestionText.Should().Contain("airport code");
-            codeToAirportQuestion.QuestionText.Should().MatchRegex(@"\b[A-Z]{3}\b"); // Should contain 3-letter airport code
-            codeToAirportQuestion.Options.Should().AllSatisfy(option => 
-                option.Should().NotBeNullOrEmpty());
+            // Code should be a 3-letter airport code
+            codeToAirportQuestion.Code.Should().MatchRegex(@"^[A-Z]{3}$");
+            
+            // Correct answer should be an airport name (not a code)
+            codeToAirportQuestion.CorrectAnswer.Should().NotMatchRegex(@"^[A-Z]{3}$");
+            
+            // Wrong answers should also be airport names
+            codeToAirportQuestion.WrongAnswers.Should().AllSatisfy(answer => 
+                answer.Should().NotMatchRegex(@"^[A-Z]{3}$"));
         }
     }
 
@@ -162,11 +164,39 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
         // Assert - If we found an AirportToCode question, verify its format
         if (airportToCodeQuestion != null)
         {
-            airportToCodeQuestion.QuestionText.Should().Contain("code");
-            airportToCodeQuestion.Options.Should().AllSatisfy(option => 
-                option.Should().MatchRegex(@"^[A-Z]{3}$")); // All options should be 3-letter codes
+            // Code should be an airport name (not a 3-letter code)
+            airportToCodeQuestion.Code.Should().NotMatchRegex(@"^[A-Z]{3}$");
+            
+            // Correct answer should be a 3-letter airport code
             airportToCodeQuestion.CorrectAnswer.Should().MatchRegex(@"^[A-Z]{3}$");
+            
+            // All wrong answers should be 3-letter codes
+            airportToCodeQuestion.WrongAnswers.Should().AllSatisfy(answer => 
+                answer.Should().MatchRegex(@"^[A-Z]{3}$"));
         }
+    }
+
+    [Fact]
+    public async Task GetQuestion_AllAnswersAreUnique()
+    {
+        // Arrange
+        await _factory.SeedTestDataAsync();
+
+        // Act
+        var response = await _client.GetAsync("/api/quiz/question");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        
+        var question = await response.Content.ReadFromJsonAsync<QuizQuestion>();
+        question.Should().NotBeNull();
+
+        // Combine all possible answers
+        var allAnswers = question!.WrongAnswers.Concat(new[] { question.CorrectAnswer }).ToList();
+        
+        // All answers should be unique (no duplicates)
+        allAnswers.Should().OnlyHaveUniqueItems();
+        allAnswers.Should().HaveCount(4); // 3 wrong + 1 correct = 4 total
     }
 
     [Fact]
