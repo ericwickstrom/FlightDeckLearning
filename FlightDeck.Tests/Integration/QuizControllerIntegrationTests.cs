@@ -78,11 +78,10 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
     [Fact]
     public async Task GetQuestion_WithEmptyDatabase_ReturnsBadRequest()
     {
-        // Arrange - Start with empty database
-        using var context = _factory.GetDbContext();
-        context.Airports.RemoveRange(context.Airports);
-        await context.SaveChangesAsync();
-
+        // Arrange - Start with empty database but need authenticated user
+        await _factory.ResetDatabaseAsync();
+        
+        // Create authenticated client (this will add a user but no airports)
         var client = await _factory.CreateAuthenticatedClientAsync();
 
         // Act
@@ -209,7 +208,8 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
     [Fact]
     public async Task GetStats_WithAuthenticatedUser_ReturnsUserStats()
     {
-        // Arrange
+        // Arrange - Reset database and create authenticated client
+        await _factory.ResetDatabaseAsync();
         var client = await _factory.CreateAuthenticatedClientAsync();
 
         // Act
@@ -234,4 +234,4 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
-}
+}   

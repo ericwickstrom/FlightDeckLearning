@@ -15,6 +15,8 @@ namespace FlightDeck.Tests.Integration;
 /// </summary>
 public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
 {
+    private readonly string _databaseName = $"FlightDeckTestDb_{Guid.NewGuid()}";
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureServices(services =>
@@ -26,20 +28,12 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
             if (descriptor != null)
                 services.Remove(descriptor);
 
-            // Add in-memory database for testing with unique name per instance
+            // Add in-memory database for testing with consistent name per factory instance
             services.AddDbContext<FlightDeckDbContext>(options =>
             {
-                options.UseInMemoryDatabase($"FlightDeckTestDb_{Guid.NewGuid()}");
+                options.UseInMemoryDatabase(_databaseName);
                 options.EnableSensitiveDataLogging(false);
             });
-
-            // Build service provider and ensure database is created
-            var serviceProvider = services.BuildServiceProvider();
-            using var scope = serviceProvider.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<FlightDeckDbContext>();
-            
-            // Ensure the database is created
-            context.Database.EnsureCreated();
         });
 
         // Use test environment
@@ -56,15 +50,31 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
     }
 
     /// <summary>
+    /// Helper method to reset database to clean state
+    /// </summary>
+    public async Task ResetDatabaseAsync()
+    {
+        using var context = GetDbContext();
+        
+        // Clear all data
+        context.UserProgress.RemoveRange(context.UserProgress);
+        context.Users.RemoveRange(context.Users);
+        context.Airports.RemoveRange(context.Airports);
+        await context.SaveChangesAsync();
+        
+        // Clear change tracker to avoid tracking issues
+        context.ChangeTracker.Clear();
+    }
+
+    /// <summary>
     /// Helper method to seed test data
     /// </summary>
     public async Task SeedTestDataAsync()
     {
         using var context = GetDbContext();
         
-        // Clear existing data
-        context.Airports.RemoveRange(context.Airports);
-        await context.SaveChangesAsync();
+        // Clear existing data first
+        await ResetDatabaseAsync();
 
         // Add test airports
         var testAirports = new[]
@@ -76,37 +86,62 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
 
         context.Airports.AddRange(testAirports);
         await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
     }
 
     /// <summary>
-    /// 🆕 Helper method to create a test user and get JWT token
+    /// Helper method to create a test user and get JWT token
     /// </summary>
     public async Task<(string token, User user)> CreateTestUserAndTokenAsync()
     {
+        // First, ensure we have a clean state for user creation
+        using (var setupContext = GetDbContext())
+        {
+            // Remove any existing test users
+            var existingUsers = setupContext.Users.Where(u => u.Email.StartsWith("test"));
+            setupContext.Users.RemoveRange(existingUsers);
+            await setupContext.SaveChangesAsync();
+        }
+
         var client = CreateClient();
         
-        // Register a test user
+        // Create unique email to avoid conflicts
+        var uniqueId = Guid.NewGuid().ToString("N")[..8];
         var registerRequest = new RegisterRequest(
-            Email: "test@example.com",
-            Username: "testuser",
+            Email: $"test{uniqueId}@example.com",
+            Username: $"testuser{uniqueId}",
             Password: "TestPassword123!"
         );
 
         var response = await client.PostAsJsonAsync("/api/auth/register", registerRequest);
-        response.EnsureSuccessStatusCode();
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"Failed to register test user: {response.StatusCode} - {error}");
+        }
 
         var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
         
-        // Get the user from database using the same scope as the registration
-        using var scope = Services.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<FlightDeckDbContext>();
-        var user = await context.Users.FirstAsync(u => u.Email == "test@example.com");
+        if (authResponse?.Token == null)
+        {
+            throw new InvalidOperationException("Failed to get token from registration response");
+        }
+
+        // Get the user from database
+        using var context = GetDbContext();
+        var user = await context.Users.FirstOrDefaultAsync(u => u.Email == registerRequest.Email);
         
-        return (authResponse!.Token, user);
+        if (user == null)
+        {
+            throw new InvalidOperationException($"User not found after registration: {registerRequest.Email}");
+        }
+        
+        return (authResponse.Token, user);
     }
 
     /// <summary>
-    /// 🆕 Helper method to create authenticated HTTP client
+    /// Helper method to create authenticated HTTP client
     /// </summary>
     public async Task<HttpClient> CreateAuthenticatedClientAsync()
     {
@@ -115,5 +150,23 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
         client.DefaultRequestHeaders.Authorization = 
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         return client;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            // Clean up the in-memory database
+            try
+            {
+                using var context = GetDbContext();
+                context.Database.EnsureDeleted();
+            }
+            catch
+            {
+                // Ignore cleanup errors
+            }
+        }
+        base.Dispose(disposing);
     }
 }

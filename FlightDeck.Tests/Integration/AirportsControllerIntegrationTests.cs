@@ -46,7 +46,8 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
     [Fact]
     public async Task GetAirports_WithEmptyDatabase_ReturnsEmptyList()
     {
-        // Arrange - Start with clean database (no seeding)
+        // Arrange - Start with clean database (reset to ensure empty)
+        await _factory.ResetDatabaseAsync();
         var client = _factory.CreateClient();
 
         // Act
@@ -63,7 +64,8 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
     [Fact]
     public async Task CreateAirport_WithValidData_ReturnsCreatedAirport()
     {
-        // Arrange
+        // Arrange - Start with clean database
+        await _factory.ResetDatabaseAsync();
         var client = _factory.CreateClient();
         var newAirport = new Airport("DEN", "Denver International Airport", "Denver", "USA", "North America");
 
@@ -110,6 +112,7 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
     public async Task CreateAirport_WithInvalidJson_ReturnsBadRequest()
     {
         // Arrange - Send malformed JSON
+        await _factory.ResetDatabaseAsync();
         var client = _factory.CreateClient();
         var invalidJson = "{ invalid json }";
         var content = new StringContent(invalidJson, System.Text.Encoding.UTF8, "application/json");
@@ -125,6 +128,7 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
     public async Task CreateAirport_WithMissingRequiredFields_HandlesMissingData()
     {
         // Arrange - Airport with missing required fields
+        await _factory.ResetDatabaseAsync();
         var client = _factory.CreateClient();
         var incompleteAirport = new
         {
@@ -147,7 +151,8 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
     [Fact]
     public async Task Integration_CreateThenRetrieve_WorksEndToEnd()
     {
-        // Arrange
+        // Arrange - Start with clean database
+        await _factory.ResetDatabaseAsync();
         var client = _factory.CreateClient();
         var newAirport = new Airport("SEA", "Seattle-Tacoma International Airport", "Seattle", "USA", "North America");
 

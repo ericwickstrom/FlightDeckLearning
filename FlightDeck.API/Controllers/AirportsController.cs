@@ -28,9 +28,8 @@ public class AirportsController : ControllerBase
     {
         try
         {
-            // Check if airport already exists (without tracking)
+            // Check if airport already exists
             var existingAirport = await _context.Airports
-                .AsNoTracking()  // This prevents EF from tracking the entity
                 .FirstOrDefaultAsync(a => a.IataCode == airport.IataCode);
 
             if (existingAirport != null)
@@ -38,13 +37,23 @@ public class AirportsController : ControllerBase
                 return Conflict($"Airport with code '{airport.IataCode}' already exists.");
             }
 
+            // Add the new airport
             _context.Airports.Add(airport);
             await _context.SaveChangesAsync();
+            
             return CreatedAtAction(nameof(GetAirports), airport);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex)
         {
-            return Conflict($"Airport with code '{airport.IataCode}' already exists.");
+            // This catches database-level constraint violations
+            if (ex.InnerException?.ToString().Contains("duplicate") == true || 
+                ex.InnerException?.ToString().Contains("UNIQUE") == true)
+            {
+                return Conflict($"Airport with code '{airport.IataCode}' already exists.");
+            }
+            
+            // Re-throw if it's a different kind of database error
+            throw;
         }
     }
 }

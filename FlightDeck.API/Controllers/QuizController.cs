@@ -163,7 +163,7 @@ public class QuizController : ControllerBase
         return Ok(response);
     }
 
-    // 🆕 NEW: Get current user's quiz stats
+    // 🆕 FIXED: Get current user's quiz stats with null safety
     [HttpGet("stats")]
     public async Task<ActionResult<object>> GetUserQuizStats()
     {
@@ -184,7 +184,9 @@ public class QuizController : ControllerBase
         var totalCorrect = progressRecords.Sum(p => p.CorrectAnswers);
         var accuracyRate = totalQuizzes > 0 ? (double)totalCorrect / totalQuizzes : 0.0;
         var currentStreak = progressRecords.Sum(p => p.CurrentStreak);
-        var bestStreak = progressRecords.Max(p => p.BestStreak);
+        
+        // FIXED: Handle empty collection case
+        var bestStreak = progressRecords.Any() ? progressRecords.Max(p => p.BestStreak) : 0;
 
         var stats = new
         {
