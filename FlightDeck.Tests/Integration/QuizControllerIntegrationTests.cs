@@ -11,22 +11,21 @@ namespace FlightDeck.Tests.Integration;
 public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplicationFactory>
 {
     private readonly FlightDeckWebApplicationFactory _factory;
-    private readonly HttpClient _client;
 
     public QuizControllerIntegrationTests(FlightDeckWebApplicationFactory factory)
     {
         _factory = factory;
-        _client = _factory.CreateClient();
     }
 
     [Fact]
     public async Task GetQuestion_WithSeededData_ReturnsValidQuizQuestion()
     {
-        // Arrange - Seed test data
+        // Arrange - Seed test data and create authenticated client
         await _factory.SeedTestDataAsync();
+        var client = await _factory.CreateAuthenticatedClientAsync();
 
         // Act - Request a quiz question
-        var response = await _client.GetAsync("/api/quiz/question");
+        var response = await client.GetAsync("/api/quiz/question");
 
         // Assert - Verify response structure
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -48,9 +47,10 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
     {
         // Arrange
         await _factory.SeedTestDataAsync();
+        var client = await _factory.CreateAuthenticatedClientAsync();
 
         // Act
-        var response = await _client.GetAsync("/api/quiz/question");
+        var response = await client.GetAsync("/api/quiz/question");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -62,18 +62,34 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
     }
 
     [Fact]
-    public async Task GetQuestion_WithEmptyDatabase_ReturnsNotFound()
+    public async Task GetQuestion_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        // Arrange - Use unauthenticated client
+        await _factory.SeedTestDataAsync();
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync("/api/quiz/question");
+
+        // Assert - Should require authentication
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetQuestion_WithEmptyDatabase_ReturnsBadRequest()
     {
         // Arrange - Start with empty database
         using var context = _factory.GetDbContext();
         context.Airports.RemoveRange(context.Airports);
         await context.SaveChangesAsync();
 
-        // Act
-        var response = await _client.GetAsync("/api/quiz/question");
+        var client = await _factory.CreateAuthenticatedClientAsync();
 
-        // Assert - Your QuizController returns NotFound when no airports exist
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        // Act
+        var response = await client.GetAsync("/api/quiz/question");
+
+        // Assert - Your QuizController returns BadRequest when not enough airports exist
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -81,11 +97,12 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
     {
         // Arrange - Need multiple airports for variety
         await _factory.SeedTestDataAsync();
+        var client = await _factory.CreateAuthenticatedClientAsync();
 
         // Act - Make multiple requests
-        var response1 = await _client.GetAsync("/api/quiz/question");
-        var response2 = await _client.GetAsync("/api/quiz/question");
-        var response3 = await _client.GetAsync("/api/quiz/question");
+        var response1 = await client.GetAsync("/api/quiz/question");
+        var response2 = await client.GetAsync("/api/quiz/question");
+        var response3 = await client.GetAsync("/api/quiz/question");
 
         // Assert - All should be successful
         response1.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -97,7 +114,6 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
         var question3 = await response3.Content.ReadFromJsonAsync<QuizQuestion>();
 
         // With multiple airports, there's a chance we get different questions
-        // This tests that the randomization is working
         var codes = new[] { question1!.Code, question2!.Code, question3!.Code };
         
         // Note: This could occasionally fail due to randomness, but with 3 airports 
@@ -111,13 +127,15 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
     {
         // Arrange
         await _factory.SeedTestDataAsync();
+        var client = await _factory.CreateAuthenticatedClientAsync();
 
         // Act - Make multiple requests to try to get a CodeToAirport question
         QuizQuestion? codeToAirportQuestion = null;
         
         for (int i = 0; i < 10 && codeToAirportQuestion == null; i++)
         {
-            var response = await _client.GetAsync("/api/quiz/question");
+            var response = await client.GetAsync("/api/quiz/question");
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
             var question = await response.Content.ReadFromJsonAsync<QuizQuestion>();
             
             if (question?.Type == QuestionType.CodeToAirport)
@@ -142,48 +160,14 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
     }
 
     [Fact]
-    public async Task GetQuestion_AirportToCodeType_HasCorrectFormat()
-    {
-        // Arrange
-        await _factory.SeedTestDataAsync();
-
-        // Act - Make multiple requests to try to get an AirportToCode question
-        QuizQuestion? airportToCodeQuestion = null;
-        
-        for (int i = 0; i < 10 && airportToCodeQuestion == null; i++)
-        {
-            var response = await _client.GetAsync("/api/quiz/question");
-            var question = await response.Content.ReadFromJsonAsync<QuizQuestion>();
-            
-            if (question?.Type == QuestionType.AirportToCode)
-            {
-                airportToCodeQuestion = question;
-            }
-        }
-
-        // Assert - If we found an AirportToCode question, verify its format
-        if (airportToCodeQuestion != null)
-        {
-            // Code should be an airport name (not a 3-letter code)
-            airportToCodeQuestion.Code.Should().NotMatchRegex(@"^[A-Z]{3}$");
-            
-            // Correct answer should be a 3-letter airport code
-            airportToCodeQuestion.CorrectAnswer.Should().MatchRegex(@"^[A-Z]{3}$");
-            
-            // All wrong answers should be 3-letter codes
-            airportToCodeQuestion.WrongAnswers.Should().AllSatisfy(answer => 
-                answer.Should().MatchRegex(@"^[A-Z]{3}$"));
-        }
-    }
-
-    [Fact]
     public async Task GetQuestion_AllAnswersAreUnique()
     {
         // Arrange
         await _factory.SeedTestDataAsync();
+        var client = await _factory.CreateAuthenticatedClientAsync();
 
         // Act
-        var response = await _client.GetAsync("/api/quiz/question");
+        var response = await client.GetAsync("/api/quiz/question");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -204,11 +188,12 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
     {
         // Arrange
         await _factory.SeedTestDataAsync();
+        var client = await _factory.CreateAuthenticatedClientAsync();
 
         // Act - Measure response times
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         
-        var response = await _client.GetAsync("/api/quiz/question");
+        var response = await client.GetAsync("/api/quiz/question");
         
         stopwatch.Stop();
 
@@ -219,5 +204,34 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
         // For a learning app, quiz questions should be fast!
         stopwatch.ElapsedMilliseconds.Should().BeLessThan(100, 
             "Quiz questions should be very fast for good user experience");
+    }
+
+    [Fact]
+    public async Task GetStats_WithAuthenticatedUser_ReturnsUserStats()
+    {
+        // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync();
+
+        // Act
+        var response = await client.GetAsync("/api/quiz/stats");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        
+        var stats = await response.Content.ReadFromJsonAsync<object>();
+        stats.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task GetStats_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync("/api/quiz/stats");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 }

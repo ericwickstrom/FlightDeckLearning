@@ -1,9 +1,11 @@
 using FlightDeck.Infrastructure.Data;
+using FlightDeck.Core.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Net.Http.Json;
 
 namespace FlightDeck.Tests.Integration;
 
@@ -24,11 +26,10 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
             if (descriptor != null)
                 services.Remove(descriptor);
 
-            // Add in-memory database for testing
+            // Add in-memory database for testing with unique name per instance
             services.AddDbContext<FlightDeckDbContext>(options =>
             {
-                options.UseInMemoryDatabase("FlightDeckTestDb");
-                // Disable sensitive data logging in tests for cleaner output
+                options.UseInMemoryDatabase($"FlightDeckTestDb_{Guid.NewGuid()}");
                 options.EnableSensitiveDataLogging(false);
             });
 
@@ -68,12 +69,51 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
         // Add test airports
         var testAirports = new[]
         {
-            new FlightDeck.Core.Models.Airport("LAX", "Los Angeles International", "Los Angeles", "USA", "North America"),
-            new FlightDeck.Core.Models.Airport( "JFK", "John F. Kennedy International", "New York", "USA", "North America"),
-            new FlightDeck.Core.Models.Airport("LHR", "London Heathrow", "London", "UK", "Europe")
+            new Airport("LAX", "Los Angeles International", "Los Angeles", "USA", "North America"),
+            new Airport("JFK", "John F. Kennedy International", "New York", "USA", "North America"),
+            new Airport("LHR", "London Heathrow", "London", "UK", "Europe")
         };
 
         context.Airports.AddRange(testAirports);
         await context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// 🆕 Helper method to create a test user and get JWT token
+    /// </summary>
+    public async Task<(string token, User user)> CreateTestUserAndTokenAsync()
+    {
+        var client = CreateClient();
+        
+        // Register a test user
+        var registerRequest = new RegisterRequest(
+            Email: "test@example.com",
+            Username: "testuser",
+            Password: "TestPassword123!"
+        );
+
+        var response = await client.PostAsJsonAsync("/api/auth/register", registerRequest);
+        response.EnsureSuccessStatusCode();
+
+        var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
+        
+        // Get the user from database using the same scope as the registration
+        using var scope = Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<FlightDeckDbContext>();
+        var user = await context.Users.FirstAsync(u => u.Email == "test@example.com");
+        
+        return (authResponse!.Token, user);
+    }
+
+    /// <summary>
+    /// 🆕 Helper method to create authenticated HTTP client
+    /// </summary>
+    public async Task<HttpClient> CreateAuthenticatedClientAsync()
+    {
+        var (token, _) = await CreateTestUserAndTokenAsync();
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = 
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        return client;
     }
 }

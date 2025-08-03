@@ -1,8 +1,9 @@
 using FlightDeck.Core.Models;
+using FlightDeck.Infrastructure.Data;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 
 namespace FlightDeck.Tests.Integration;
 
@@ -13,12 +14,10 @@ namespace FlightDeck.Tests.Integration;
 public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApplicationFactory>
 {
     private readonly FlightDeckWebApplicationFactory _factory;
-    private readonly HttpClient _client;
 
     public AirportsControllerIntegrationTests(FlightDeckWebApplicationFactory factory)
     {
         _factory = factory;
-        _client = _factory.CreateClient(); // Creates an HTTP client that talks to your test server
     }
 
     [Fact]
@@ -26,9 +25,10 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
     {
         // Arrange - Set up test data
         await _factory.SeedTestDataAsync();
+        var client = _factory.CreateClient();
 
         // Act - Make actual HTTP GET request
-        var response = await _client.GetAsync("/api/airports");
+        var response = await client.GetAsync("/api/airports");
 
         // Assert - Verify the HTTP response
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -47,12 +47,10 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
     public async Task GetAirports_WithEmptyDatabase_ReturnsEmptyList()
     {
         // Arrange - Start with clean database (no seeding)
-        using var context = _factory.GetDbContext();
-        context.Airports.RemoveRange(context.Airports);
-        await context.SaveChangesAsync();
+        var client = _factory.CreateClient();
 
         // Act
-        var response = await _client.GetAsync("/api/airports");
+        var response = await client.GetAsync("/api/airports");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -66,10 +64,11 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
     public async Task CreateAirport_WithValidData_ReturnsCreatedAirport()
     {
         // Arrange
+        var client = _factory.CreateClient();
         var newAirport = new Airport("DEN", "Denver International Airport", "Denver", "USA", "North America");
 
         // Act - Make HTTP POST request with JSON body
-        var response = await _client.PostAsJsonAsync("/api/airports", newAirport);
+        var response = await client.PostAsJsonAsync("/api/airports", newAirport);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -80,7 +79,8 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
         createdAirport.Name.Should().Be("Denver International Airport");
         
         // Verify it was actually saved to database
-        using var context = _factory.GetDbContext();
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<FlightDeckDbContext>();
         var savedAirport = await context.Airports.FindAsync("DEN");
         savedAirport.Should().NotBeNull();
         savedAirport!.Name.Should().Be("Denver International Airport");
@@ -91,11 +91,12 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
     {
         // Arrange - Seed data first
         await _factory.SeedTestDataAsync();
+        var client = _factory.CreateClient();
 
         var duplicateAirport = new Airport("LAX", "Different Airport", "Different City", "Different Country", "Different Region");
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/airports", duplicateAirport);
+        var response = await client.PostAsJsonAsync("/api/airports", duplicateAirport);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
@@ -109,11 +110,12 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
     public async Task CreateAirport_WithInvalidJson_ReturnsBadRequest()
     {
         // Arrange - Send malformed JSON
+        var client = _factory.CreateClient();
         var invalidJson = "{ invalid json }";
         var content = new StringContent(invalidJson, System.Text.Encoding.UTF8, "application/json");
 
         // Act
-        var response = await _client.PostAsync("/api/airports", content);
+        var response = await client.PostAsync("/api/airports", content);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -123,6 +125,7 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
     public async Task CreateAirport_WithMissingRequiredFields_HandlesMissingData()
     {
         // Arrange - Airport with missing required fields
+        var client = _factory.CreateClient();
         var incompleteAirport = new
         {
             // Missing IataCode, Name, etc.
@@ -130,7 +133,7 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/airports", incompleteAirport);
+        var response = await client.PostAsJsonAsync("/api/airports", incompleteAirport);
 
         // Assert - This tests how your API handles incomplete data
         // The exact behavior depends on your model validation
@@ -145,14 +148,15 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
     public async Task Integration_CreateThenRetrieve_WorksEndToEnd()
     {
         // Arrange
+        var client = _factory.CreateClient();
         var newAirport = new Airport("SEA", "Seattle-Tacoma International Airport", "Seattle", "USA", "North America");
 
         // Act 1 - Create airport
-        var createResponse = await _client.PostAsJsonAsync("/api/airports", newAirport);
+        var createResponse = await client.PostAsJsonAsync("/api/airports", newAirport);
         createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
 
         // Act 2 - Retrieve all airports
-        var getResponse = await _client.GetAsync("/api/airports");
+        var getResponse = await client.GetAsync("/api/airports");
         getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Assert - The created airport should be in the list
