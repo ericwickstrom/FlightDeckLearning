@@ -24,6 +24,13 @@ public class UserProgress
     [Required]
     public DateTime LastStudied { get; set; }
     
+    // 🆕 Streak tracking
+    [Range(0, int.MaxValue)]
+    public int CurrentStreak { get; set; } = 0;
+    
+    [Range(0, int.MaxValue)]
+    public int BestStreak { get; set; } = 0;
+    
     // Computed properties - these don't get stored in database
     [NotMapped]
     public double AccuracyRate => TotalAttempts > 0 ? (double)CorrectAnswers / TotalAttempts : 0.0;

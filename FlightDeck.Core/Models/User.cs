@@ -56,3 +56,27 @@ public record UserInfo(
     int TotalQuizzes,
     double AccuracyRate
 );
+
+/// <summary>
+/// Quiz Answer Submission DTOs
+/// </summary>
+public record QuizAnswerRequest(
+    string QuestionCode,     // The airport code that was asked about (e.g., "ATL")
+    string UserAnswer,       // What the user answered (e.g., "Atlanta International")
+    QuestionType QuestionType // What type of question it was
+);
+
+public record QuizAnswerResponse(
+    bool IsCorrect,
+    string CorrectAnswer,
+    string Feedback,
+    QuizStats UserStats
+);
+
+public record QuizStats(
+    int TotalAttempts,
+    int CorrectAnswers,
+    double AccuracyRate,
+    int CurrentStreak,
+    int BestStreak
+);

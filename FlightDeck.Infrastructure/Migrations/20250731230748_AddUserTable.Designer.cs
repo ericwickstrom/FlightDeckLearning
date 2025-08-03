@@ -4,6 +4,7 @@ using FlightDeck.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FlightDeck.Infrastructure.Migrations
 {
     [DbContext(typeof(FlightDeckDbContext))]
-    partial class FlightDeckDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250731230748_AddUserTable")]
+    partial class AddUserTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -106,13 +109,7 @@ namespace FlightDeck.Infrastructure.Migrations
                         .HasMaxLength(3)
                         .HasColumnType("nvarchar(3)");
 
-                    b.Property<int>("BestStreak")
-                        .HasColumnType("int");
-
                     b.Property<int>("CorrectAnswers")
-                        .HasColumnType("int");
-
-                    b.Property<int>("CurrentStreak")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("LastStudied")

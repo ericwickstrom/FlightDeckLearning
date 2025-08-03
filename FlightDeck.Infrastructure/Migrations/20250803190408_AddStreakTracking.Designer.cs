@@ -4,6 +4,7 @@ using FlightDeck.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FlightDeck.Infrastructure.Migrations
 {
     [DbContext(typeof(FlightDeckDbContext))]
-    partial class FlightDeckDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250803190408_AddStreakTracking")]
+    partial class AddStreakTracking
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
