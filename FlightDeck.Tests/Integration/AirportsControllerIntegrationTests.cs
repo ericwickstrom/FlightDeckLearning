@@ -37,10 +37,11 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
         var airports = await response.Content.ReadFromJsonAsync<List<Airport>>();
         
         airports.Should().NotBeNull();
-        airports.Should().HaveCount(3);
+        airports.Should().HaveCount(4); // Updated to match our 4 test airports
         airports.Should().Contain(a => a.IataCode == "LAX");
         airports.Should().Contain(a => a.IataCode == "JFK");
         airports.Should().Contain(a => a.IataCode == "LHR");
+        airports.Should().Contain(a => a.IataCode == "ATL");
     }
 
     [Fact]

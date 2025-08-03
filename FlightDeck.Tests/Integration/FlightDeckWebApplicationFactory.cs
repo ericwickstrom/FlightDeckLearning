@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using System.Net.Http.Json;
 
 namespace FlightDeck.Tests.Integration;
@@ -34,6 +35,21 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
                 options.UseInMemoryDatabase(_databaseName);
                 options.EnableSensitiveDataLogging(false);
             });
+        });
+
+        // 🔧 FIX: Configure JWT settings for testing
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            // Add test-specific configuration
+            var testConfig = new Dictionary<string, string>
+            {
+                ["Jwt:SecretKey"] = "FlightDeck-Test-JWT-Secret-Key-2025-Must-Be-At-Least-256-Bits-Long-For-Security",
+                ["Jwt:Issuer"] = "FlightDeckTestIssuer",
+                ["Jwt:Audience"] = "FlightDeckTestAudience",
+                ["Jwt:ExpirationHours"] = "24"
+            };
+
+            config.AddInMemoryCollection(testConfig!);
         });
 
         // Use test environment
@@ -76,12 +92,13 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
         // Clear existing data first
         await ResetDatabaseAsync();
 
-        // Add test airports
+        // Add test airports (need at least 4 for quiz generation)
         var testAirports = new[]
         {
             new Airport("LAX", "Los Angeles International", "Los Angeles", "USA", "North America"),
             new Airport("JFK", "John F. Kennedy International", "New York", "USA", "North America"),
-            new Airport("LHR", "London Heathrow", "London", "UK", "Europe")
+            new Airport("LHR", "London Heathrow", "London", "UK", "Europe"),
+            new Airport("ATL", "Hartsfield-Jackson Atlanta International", "Atlanta", "USA", "North America")
         };
 
         context.Airports.AddRange(testAirports);
