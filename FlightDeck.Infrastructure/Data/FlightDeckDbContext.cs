@@ -33,7 +33,7 @@ public class FlightDeckDbContext : DbContext
             entity.Property(e => e.Email).HasMaxLength(255);
             entity.Property(e => e.Username).HasMaxLength(50);
             entity.Property(e => e.PasswordHash).HasMaxLength(255);
-            
+
             // Email must be unique
             entity.HasIndex(e => e.Email).IsUnique();
             entity.HasIndex(e => e.Username).IsUnique();
@@ -44,7 +44,7 @@ public class FlightDeckDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.AirportCode).HasMaxLength(3);
-            
+
             // Foreign key relationship
             entity.HasOne<User>()
                 .WithMany(u => u.ProgressRecords)

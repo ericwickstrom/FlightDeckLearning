@@ -16,7 +16,7 @@ public class AirportsControllerTests
             .Options;
 
         var context = new FlightDeckDbContext(options);
-        
+
         // Add fresh test data
         var airports = new List<Airport>
         {
@@ -27,7 +27,7 @@ public class AirportsControllerTests
         context.Airports.AddRange(airports);
         context.SaveChanges();
         context.ChangeTracker.Clear(); // Important: Clear tracking
-        
+
         return context;
     }
 

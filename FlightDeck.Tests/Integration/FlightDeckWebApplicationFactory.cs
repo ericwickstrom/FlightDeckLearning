@@ -25,7 +25,7 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
             // Remove the real database registration
             var descriptor = services.SingleOrDefault(
                 d => d.ServiceType == typeof(DbContextOptions<FlightDeckDbContext>));
-            
+
             if (descriptor != null)
                 services.Remove(descriptor);
 
@@ -71,13 +71,13 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
     public async Task ResetDatabaseAsync()
     {
         using var context = GetDbContext();
-        
+
         // Clear all data
         context.UserProgress.RemoveRange(context.UserProgress);
         context.Users.RemoveRange(context.Users);
         context.Airports.RemoveRange(context.Airports);
         await context.SaveChangesAsync();
-        
+
         // Clear change tracker to avoid tracking issues
         context.ChangeTracker.Clear();
     }
@@ -88,7 +88,7 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
     public async Task SeedTestDataAsync()
     {
         using var context = GetDbContext();
-        
+
         // Clear existing data first
         await ResetDatabaseAsync();
 
@@ -121,7 +121,7 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
         }
 
         var client = CreateClient();
-        
+
         // Create unique email to avoid conflicts
         var uniqueId = Guid.NewGuid().ToString("N")[..8];
         var registerRequest = new RegisterRequest(
@@ -131,7 +131,7 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
         );
 
         var response = await client.PostAsJsonAsync("/api/auth/register", registerRequest);
-        
+
         if (!response.IsSuccessStatusCode)
         {
             var error = await response.Content.ReadAsStringAsync();
@@ -139,7 +139,7 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
         }
 
         var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
-        
+
         if (authResponse?.Token == null)
         {
             throw new InvalidOperationException("Failed to get token from registration response");
@@ -148,12 +148,12 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
         // Get the user from database
         using var context = GetDbContext();
         var user = await context.Users.FirstOrDefaultAsync(u => u.Email == registerRequest.Email);
-        
+
         if (user == null)
         {
             throw new InvalidOperationException($"User not found after registration: {registerRequest.Email}");
         }
-        
+
         return (authResponse.Token, user);
     }
 
@@ -164,7 +164,7 @@ public class FlightDeckWebApplicationFactory : WebApplicationFactory<Program>
     {
         var (token, _) = await CreateTestUserAndTokenAsync();
         var client = CreateClient();
-        client.DefaultRequestHeaders.Authorization = 
+        client.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         return client;
     }

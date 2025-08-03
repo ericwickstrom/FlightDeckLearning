@@ -32,10 +32,10 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
 
         // Assert - Verify the HTTP response
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         // Deserialize the JSON response
         var airports = await response.Content.ReadFromJsonAsync<List<Airport>>();
-        
+
         airports.Should().NotBeNull();
         airports.Should().HaveCount(4); // Updated to match our 4 test airports
         airports.Should().Contain(a => a.IataCode == "LAX");
@@ -56,7 +56,7 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         var airports = await response.Content.ReadFromJsonAsync<List<Airport>>();
         airports.Should().NotBeNull();
         airports.Should().BeEmpty();
@@ -75,12 +75,12 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
-        
+
         var createdAirport = await response.Content.ReadFromJsonAsync<Airport>();
         createdAirport.Should().NotBeNull();
         createdAirport!.IataCode.Should().Be("DEN");
         createdAirport.Name.Should().Be("Denver International Airport");
-        
+
         // Verify it was actually saved to database
         using var scope = _factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<FlightDeckDbContext>();
@@ -103,7 +103,7 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        
+
         var errorMessage = await response.Content.ReadAsStringAsync();
         errorMessage.Should().Contain("already exists");
         errorMessage.Should().Contain("LAX");
@@ -144,7 +144,7 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
         // The exact behavior depends on your model validation
         // For now, let's just verify we get a response
         response.Should().NotBeNull();
-        
+
         // Note: In a real app, you'd add model validation to return 400 Bad Request
         // We'll add this in the validation chapter!
     }
@@ -167,8 +167,8 @@ public class AirportsControllerIntegrationTests : IClassFixture<FlightDeckWebApp
 
         // Assert - The created airport should be in the list
         var airports = await getResponse.Content.ReadFromJsonAsync<List<Airport>>();
-        airports.Should().Contain(a => 
-            a.IataCode == "SEA" && 
+        airports.Should().Contain(a =>
+            a.IataCode == "SEA" &&
             a.Name == "Seattle-Tacoma International Airport");
     }
 }

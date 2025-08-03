@@ -40,18 +40,18 @@ public class AirportsController : ControllerBase
             // Add the new airport
             _context.Airports.Add(airport);
             await _context.SaveChangesAsync();
-            
+
             return CreatedAtAction(nameof(GetAirports), airport);
         }
         catch (DbUpdateException ex)
         {
             // This catches database-level constraint violations
-            if (ex.InnerException?.ToString().Contains("duplicate") == true || 
+            if (ex.InnerException?.ToString().Contains("duplicate") == true ||
                 ex.InnerException?.ToString().Contains("UNIQUE") == true)
             {
                 return Conflict($"Airport with code '{airport.IataCode}' already exists.");
             }
-            
+
             // Re-throw if it's a different kind of database error
             throw;
         }

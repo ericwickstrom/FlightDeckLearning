@@ -57,7 +57,7 @@ public class QuizController : ControllerBase
     {
         // Get the current user's ID from the JWT token
         var userIdClaim = User.FindFirst("userId")?.Value;
-        
+
         if (userIdClaim == null || !int.TryParse(userIdClaim, out int userId))
         {
             return Unauthorized("Invalid user token.");
@@ -75,9 +75,9 @@ public class QuizController : ControllerBase
         // Determine if the answer is correct
         bool isCorrect = request.QuestionType switch
         {
-            QuestionType.CodeToAirport => 
+            QuestionType.CodeToAirport =>
                 string.Equals(request.UserAnswer.Trim(), airport.Name.Trim(), StringComparison.OrdinalIgnoreCase),
-            QuestionType.AirportToCode => 
+            QuestionType.AirportToCode =>
                 string.Equals(request.UserAnswer.Trim(), airport.IataCode.Trim(), StringComparison.OrdinalIgnoreCase),
             _ => false
         };
@@ -111,7 +111,7 @@ public class QuizController : ControllerBase
             {
                 progress.CorrectAnswers++;
                 progress.CurrentStreak++;
-                
+
                 // Update best streak if current streak is better
                 if (progress.CurrentStreak > progress.BestStreak)
                 {
@@ -135,8 +135,8 @@ public class QuizController : ControllerBase
             _ => "Unknown"
         };
 
-        var feedback = isCorrect 
-            ? $"Correct! ✅ Great job!" 
+        var feedback = isCorrect
+            ? $"Correct! ✅ Great job!"
             : $"Incorrect. ❌ The correct answer is: {correctAnswer}";
 
         if (isCorrect && progress.CurrentStreak > 1)
@@ -169,7 +169,7 @@ public class QuizController : ControllerBase
     {
         // Get the current user's ID from the JWT token
         var userIdClaim = User.FindFirst("userId")?.Value;
-        
+
         if (userIdClaim == null || !int.TryParse(userIdClaim, out int userId))
         {
             return Unauthorized("Invalid user token.");
@@ -184,7 +184,7 @@ public class QuizController : ControllerBase
         var totalCorrect = progressRecords.Sum(p => p.CorrectAnswers);
         var accuracyRate = totalQuizzes > 0 ? (double)totalCorrect / totalQuizzes : 0.0;
         var currentStreak = progressRecords.Sum(p => p.CurrentStreak);
-        
+
         // FIXED: Handle empty collection case
         var bestStreak = progressRecords.Any() ? progressRecords.Max(p => p.BestStreak) : 0;
 

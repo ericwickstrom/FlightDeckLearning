@@ -8,21 +8,21 @@ namespace FlightDeck.Core.Models;
 public class User
 {
     public int Id { get; set; }
-    
+
     [Required]
     [EmailAddress]
     public string Email { get; set; } = string.Empty;
-    
+
     [Required]
     public string Username { get; set; } = string.Empty;
-    
+
     [Required]
     public string PasswordHash { get; set; } = string.Empty;
-    
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    
+
     public DateTime LastLoginAt { get; set; }
-    
+
     // Navigation property for user progress
     public List<UserProgress> ProgressRecords { get; set; } = new();
 }
@@ -32,7 +32,7 @@ public class User
 /// </summary>
 public record RegisterRequest(
     string Email,
-    string Username, 
+    string Username,
     string Password
 );
 

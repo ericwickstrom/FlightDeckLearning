@@ -29,15 +29,15 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
 
         // Assert - Verify response structure
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         var question = await response.Content.ReadFromJsonAsync<QuizQuestion>();
-        
+
         question.Should().NotBeNull();
         question!.Code.Should().NotBeNullOrEmpty();
         question.CorrectAnswer.Should().NotBeNullOrEmpty();
         question.WrongAnswers.Should().NotBeNull();
         question.WrongAnswers.Should().HaveCount(3); // Your model has 3 wrong answers
-        
+
         // Verify the correct answer is not in wrong answers
         question.WrongAnswers.Should().NotContain(question.CorrectAnswer);
     }
@@ -54,9 +54,9 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         var question = await response.Content.ReadFromJsonAsync<QuizQuestion>();
-        
+
         question.Should().NotBeNull();
         question!.Type.Should().BeOneOf(QuestionType.CodeToAirport, QuestionType.AirportToCode);
     }
@@ -80,7 +80,7 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
     {
         // Arrange - Start with empty database but need authenticated user
         await _factory.ResetDatabaseAsync();
-        
+
         // Create authenticated client (this will add a user but no airports)
         var client = await _factory.CreateAuthenticatedClientAsync();
 
@@ -114,7 +114,7 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
 
         // With multiple airports, there's a chance we get different questions
         var codes = new[] { question1!.Code, question2!.Code, question3!.Code };
-        
+
         // Note: This could occasionally fail due to randomness, but with 3 airports 
         // and multiple question types, we should usually get some variety
         codes.Should().NotBeNull();
@@ -130,13 +130,13 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
 
         // Act - Make multiple requests to try to get a CodeToAirport question
         QuizQuestion? codeToAirportQuestion = null;
-        
+
         for (int i = 0; i < 10 && codeToAirportQuestion == null; i++)
         {
             var response = await client.GetAsync("/api/quiz/question");
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var question = await response.Content.ReadFromJsonAsync<QuizQuestion>();
-            
+
             if (question?.Type == QuestionType.CodeToAirport)
             {
                 codeToAirportQuestion = question;
@@ -148,12 +148,12 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
         {
             // Code should be a 3-letter airport code
             codeToAirportQuestion.Code.Should().MatchRegex(@"^[A-Z]{3}$");
-            
+
             // Correct answer should be an airport name (not a code)
             codeToAirportQuestion.CorrectAnswer.Should().NotMatchRegex(@"^[A-Z]{3}$");
-            
+
             // Wrong answers should also be airport names
-            codeToAirportQuestion.WrongAnswers.Should().AllSatisfy(answer => 
+            codeToAirportQuestion.WrongAnswers.Should().AllSatisfy(answer =>
                 answer.Should().NotMatchRegex(@"^[A-Z]{3}$"));
         }
     }
@@ -170,13 +170,13 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         var question = await response.Content.ReadFromJsonAsync<QuizQuestion>();
         question.Should().NotBeNull();
 
         // Combine all possible answers
         var allAnswers = question!.WrongAnswers.Concat(new[] { question.CorrectAnswer }).ToList();
-        
+
         // All answers should be unique (no duplicates)
         allAnswers.Should().OnlyHaveUniqueItems();
         allAnswers.Should().HaveCount(4); // 3 wrong + 1 correct = 4 total
@@ -191,17 +191,17 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
 
         // Act - Measure response times
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        
+
         var response = await client.GetAsync("/api/quiz/question");
-        
+
         stopwatch.Stop();
 
         // Assert - Performance test
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         stopwatch.ElapsedMilliseconds.Should().BeLessThan(1000); // Should respond within 1 second
-        
+
         // For a learning app, quiz questions should be fast!
-        stopwatch.ElapsedMilliseconds.Should().BeLessThan(100, 
+        stopwatch.ElapsedMilliseconds.Should().BeLessThan(100,
             "Quiz questions should be very fast for good user experience");
     }
 
@@ -217,7 +217,7 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         var stats = await response.Content.ReadFromJsonAsync<object>();
         stats.Should().NotBeNull();
     }
@@ -234,4 +234,4 @@ public class QuizControllerIntegrationTests : IClassFixture<FlightDeckWebApplica
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
-}   
+}
